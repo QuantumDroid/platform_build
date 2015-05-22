@@ -181,8 +181,8 @@ include $(BUILD_SYSTEM)/device.mk
 
 # A QuantumDroid build needs only the QuantumDroid product makefiles.
 ifneq ($(QD_BUILD),)
-  all_product_configs := $(shell ls device/*/$(QD_BUILD)/qd.mk)
- else
+  all_product_configs := $(shell find device -path "*/$(QD_BUILD)/qd.mk")
+else
   ifneq ($(strip $(TARGET_BUILD_APPS)),)
   # An unbundled app build needs only the core product makefiles.
   all_product_configs := $(call get-product-makefiles,\
