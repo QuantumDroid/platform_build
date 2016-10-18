@@ -3,6 +3,24 @@
 # current configuration and platform, which
 # are not specific to what is being built.
 
+# These may be used to trace makefile issues without interfering with
+# envsetup.sh.  Usage:
+#   $(call ainfo,some info message)
+#   $(call aerror,some error message)
+ifdef CALLED_FROM_SETUP
+define ainfo
+endef
+define aerror
+endef
+else
+define ainfo
+$(info $(1))
+endef
+define aerror
+$(error $(1))
+endef
+endif
+
 # Only use ANDROID_BUILD_SHELL to wrap around bash.
 # DO NOT use other shells such as zsh.
 ifdef ANDROID_BUILD_SHELL
@@ -166,7 +184,12 @@ include $(BUILD_SYSTEM)/envsetup.mk
 # See envsetup.mk for a description of SCAN_EXCLUDE_DIRS
 FIND_LEAVES_EXCLUDES := $(addprefix --prune=, $(OUT_DIR) $(SCAN_EXCLUDE_DIRS) .repo .git)
 
+# General entries for project pathmap.  Any entries listed here should
+# be device and hardware independent.
+$(call project-set-path-variant,recovery,RECOVERY_VARIANT,bootable/recovery)
+
 -include vendor/extra/BoardConfigExtra.mk
+
 # The build system exposes several variables for where to find the kernel
 # headers:
 #   TARGET_DEVICE_KERNEL_HEADERS is automatically created for the current
@@ -499,7 +522,11 @@ endif # TARGET_BUILD_APPS || TARGET_BUILD_PDK
 # Generic tools.
 JACK := $(HOST_OUT_EXECUTABLES)/jack
 
+ifeq ($(USE_HOST_LEX),yes)
+LEX := flex
+else
 LEX := prebuilts/misc/$(BUILD_OS)-$(HOST_PREBUILT_ARCH)/flex/flex-2.5.39
+endif
 # The default PKGDATADIR built in the prebuilt bison is a relative path
 # external/bison/data.
 # To run bison from elsewhere you need to set up enviromental variable
@@ -631,6 +658,9 @@ endif
 
 # Rules for QCOM targets
 include $(BUILD_SYSTEM)/qcom_target.mk
+
+# Rules for MTK targets
+include $(BUILD_SYSTEM)/mtk_target.mk
 
 # ###############################################################
 # Set up final options.
@@ -884,8 +914,10 @@ ifneq ($(TARGET_COPY_FILES_OVERRIDES),)
     PRODUCT_COPY_FILES := $(filter-out $(TARGET_COPY_FILES_OVERRIDES), $(PRODUCT_COPY_FILES))
 endif
 
+ifneq ($(QD_BUILD),)
 ## We need to be sure the global selinux policies are included
 ## last, to avoid accidental resetting by device configs
 $(eval include vendor/qd/sepolicy/sepolicy.mk)
+endif
 
 include $(BUILD_SYSTEM)/dumpvar.mk
