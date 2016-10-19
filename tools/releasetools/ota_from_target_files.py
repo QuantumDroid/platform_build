@@ -779,7 +779,7 @@ endif;
   WriteMetadata(metadata, output_zip)
 
   common.ZipWriteStr(output_zip, "system/build.prop",
-                     ""+input_zip.read("SYSTEM/build.prop")
+                     ""+input_zip.read("SYSTEM/build.prop"))
 
 def WritePolicyConfig(file_name, output_zip):
   common.ZipWrite(output_zip, file_name, os.path.basename(file_name))

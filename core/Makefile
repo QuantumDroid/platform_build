@@ -569,6 +569,7 @@ $(INSTALLED_BOOTIMAGE_TARGET): $(MKBOOTIMG) $(INTERNAL_BOOTIMAGE_FILES) $(BOOT_S
 	$(hide) $(MKBOOTIMG) $(INTERNAL_BOOTIMAGE_ARGS) $(INTERNAL_MKBOOTIMG_VERSION_ARGS) $(BOARD_MKBOOTIMG_ARGS) --output $@
 	$(BOOT_SIGNER) /boot $@ $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_VERITY_SIGNING_KEY).pk8 $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_VERITY_SIGNING_KEY).x509.pem $@
 	$(hide) $(call assert-max-image-size,$@,$(BOARD_BOOTIMAGE_PARTITION_SIZE))
+	@echo "Made boot image: $@"
 
 .PHONY: bootimage-nodeps
 bootimage-nodeps: $(MKBOOTIMG) $(BOOT_SIGNER)
@@ -576,6 +577,7 @@ bootimage-nodeps: $(MKBOOTIMG) $(BOOT_SIGNER)
 	$(hide) $(MKBOOTIMG) $(INTERNAL_BOOTIMAGE_ARGS) $(INTERNAL_MKBOOTIMG_VERSION_ARGS) $(BOARD_MKBOOTIMG_ARGS) --output $(INSTALLED_BOOTIMAGE_TARGET)
 	$(BOOT_SIGNER) /boot $(INSTALLED_BOOTIMAGE_TARGET) $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_VERITY_SIGNING_KEY).pk8 $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_VERITY_SIGNING_KEY).x509.pem $(INSTALLED_BOOTIMAGE_TARGET)
 	$(hide) $(call assert-max-image-size,$(INSTALLED_BOOTIMAGE_TARGET),$(BOARD_BOOTIMAGE_PARTITION_SIZE))
+	@echo "Made boot image: $@"
 
 else ifndef BOARD_CUSTOM_BOOTIMG_MK
 
@@ -586,6 +588,7 @@ $(INSTALLED_BOOTIMAGE_TARGET): $(MKBOOTIMG) $(INTERNAL_BOOTIMAGE_FILES) $(VBOOT_
 	$(hide) $(MKBOOTIMG) $(INTERNAL_BOOTIMAGE_ARGS) $(INTERNAL_MKBOOTIMG_VERSION_ARGS) $(BOARD_MKBOOTIMG_ARGS) --output $@.unsigned
 	$(VBOOT_SIGNER) $(FUTILITY) $@.unsigned $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_VBOOT_SIGNING_KEY).vbpubk $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_VBOOT_SIGNING_KEY).vbprivk $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_VBOOT_SIGNING_SUBKEY).vbprivk $@.keyblock $@
 	$(hide) $(call assert-max-image-size,$@,$(BOARD_BOOTIMAGE_PARTITION_SIZE))
+	@echo "Made boot image: $@"
 
 .PHONY: bootimage-nodeps
 bootimage-nodeps: $(MKBOOTIMG) $(VBOOT_SIGNER)
@@ -593,6 +596,7 @@ bootimage-nodeps: $(MKBOOTIMG) $(VBOOT_SIGNER)
 	$(hide) $(MKBOOTIMG) $(INTERNAL_BOOTIMAGE_ARGS) $(INTERNAL_MKBOOTIMG_VERSION_ARGS) $(BOARD_MKBOOTIMG_ARGS) --output $(INSTALLED_BOOTIMAGE_TARGET).unsigned
 	$(VBOOT_SIGNER) $(FUTILITY) $(INSTALLED_BOOTIMAGE_TARGET).unsigned $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_VBOOT_SIGNING_KEY).vbpubk $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_VBOOT_SIGNING_KEY).vbprivk $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_VBOOT_SIGNING_SUBKEY).vbprivk $(INSTALLED_BOOTIMAGE_TARGET).keyblock $(INSTALLED_BOOTIMAGE_TARGET)
 	$(hide) $(call assert-max-image-size,$(INSTALLED_BOOTIMAGE_TARGET),$(BOARD_BOOTIMAGE_PARTITION_SIZE))
+	@echo "Made boot image: $@"
 
   else # PRODUCT_SUPPORTS_VBOOT != true
 
@@ -606,6 +610,7 @@ bootimage-nodeps: $(MKBOOTIMG)
 	@echo "make $@: ignoring dependencies"
 	$(hide) $(MKBOOTIMG) $(INTERNAL_BOOTIMAGE_ARGS) $(INTERNAL_MKBOOTIMG_VERSION_ARGS) $(BOARD_MKBOOTIMG_ARGS) --output $(INSTALLED_BOOTIMAGE_TARGET)
 	$(hide) $(call assert-max-image-size,$(INSTALLED_BOOTIMAGE_TARGET),$(BOARD_BOOTIMAGE_PARTITION_SIZE))
+	@echo "Made boot image: $@"
 
   endif # PRODUCT_SUPPORTS_VBOOT
 endif # TARGET_BOOTIMAGE_USE_EXT2 / BOARD_CUSTOM_BOOTIMG_MK
@@ -713,7 +718,7 @@ endif  # TARGET_BUILD_APPS
 $(kernel_notice_file): \
 	    $(BUILD_SYSTEM)/LINUX_KERNEL_COPYING \
 	    | $(ACP)
-	@echo Copying: $@
+	@echo "Copying:"" $@"
 	$(hide) mkdir -p $(dir $@)
 	$(hide) $(ACP) $< $@
 
@@ -922,16 +927,17 @@ endif
 # can be overridden for a particular device by putting a font.png in
 # its private recovery resources.
 
-ifneq (,$(filter xxxhdpi 560dpi xxhdpi 400dpi xhdpi,$(recovery_density)))
-recovery_font := $(call project-path-for,recovery)/fonts/18x32.png
+ ifneq (,$(filter xxxhdpi 560dpi xxhdpi 400dpi xhdpi,$(recovery_density)))
+ recovery_font := $(call project-path-for,recovery)/fonts/18x32.png
 else
-recovery_font := $(call project-path-for,recovery)/fonts/12x22.png
-endif
+ recovery_font := $(call project-path-for,recovery)/fonts/12x22.png
+ endif
+ 
+ ifneq ($(TARGET_RECOVERY_DEVICE_DIRS),)
+ recovery_root_private := $(strip \
+   $(foreach d,$(TARGET_RECOVERY_DEVICE_DIRS), $(wildcard $(d)/recovery/root)))
+ else
 
-ifneq ($(TARGET_RECOVERY_DEVICE_DIRS),)
-recovery_root_private := $(strip \
-  $(foreach d,$(TARGET_RECOVERY_DEVICE_DIRS), $(wildcard $(d)/recovery/root)))
-else
 recovery_root_private := $(strip $(wildcard $(TARGET_DEVICE_DIR)/recovery/root))
 endif
 ifneq ($(recovery_root_private),)
@@ -1026,12 +1032,12 @@ $(RECOVERY_INSTALL_OTA_KEYS): $(OTA_PUBLIC_KEYS) $(DUMPKEY_JAR) $(extra_keys)
 	java -jar $(DUMPKEY_JAR) $(PRIVATE_OTA_PUBLIC_KEYS) $(extra_keys) > $@
 
 define build-recoveryramdisk
-  @echo ----- Making recovery image ------
+  @echo "----- Making recovery image ------"
   $(hide) mkdir -p $(TARGET_RECOVERY_OUT)
   $(hide) mkdir -p $(TARGET_RECOVERY_ROOT_OUT)/etc $(TARGET_RECOVERY_ROOT_OUT)/sdcard $(TARGET_RECOVERY_ROOT_OUT)/tmp
   @echo Copying baseline ramdisk...
   $(hide) rsync -a --exclude=etc --exclude=sdcard --exclude=vendor $(TARGET_ROOT_OUT) $(TARGET_RECOVERY_OUT) # "cp -Rf" fails to overwrite broken symlinks on Mac.
-  @echo Modifying ramdisk contents...
+  @echo "Modifying ramdisk contents..."
   $(hide) rm -f $(TARGET_RECOVERY_ROOT_OUT)/init*.rc
   $(hide) cp -f $(recovery_initrc) $(TARGET_RECOVERY_ROOT_OUT)/
   $(hide) rm -f $(TARGET_RECOVERY_ROOT_OUT)/sepolicy
@@ -1071,7 +1077,7 @@ define build-recoveryimage-target
   $(if $(filter true,BOARD_USES_RECOVERY_AS_BOOT), \
     $(hide) $(call assert-max-image-size,$(1),$(BOARD_BOOTIMAGE_PARTITION_SIZE)), \
     $(hide) $(call assert-max-image-size,$(1),$(BOARD_RECOVERYIMAGE_PARTITION_SIZE)))
-  @echo ----- Made recovery image: $(1) --------
+  @echo "Made recovery image: $@"
 endef
 
 ifeq ($(BOARD_USES_RECOVERY_AS_BOOT),true)
@@ -1802,7 +1808,7 @@ $(BUILT_TARGET_FILES_PACKAGE): \
 		$(APKCERTS_FILE) \
 		$(HOST_OUT_EXECUTABLES)/fs_config \
 		| $(ACP)
-	@echo "Package target files: $@"
+	@echo "Package target files:"" $@"
 	$(hide) rm -rf $@ $(zip_root)
 	$(hide) mkdir -p $(dir $@) $(zip_root)
 ifneq (,$(INSTALLED_RECOVERYIMAGE_TARGET)$(filter true,$(BOARD_USES_RECOVERY_AS_BOOT)))
@@ -2059,7 +2065,7 @@ name := $(TARGET_PRODUCT)
 ifeq ($(TARGET_BUILD_TYPE),debug)
   name := $(name)_debug
 endif
-name := QuantumDroid-$(shell date +%Y%m%d)-$(TARGET_DEVICE)
+name := $(name)-ota-$(FILE_NAME_TAG)
 
 INTERNAL_OTA_PACKAGE_TARGET := $(PRODUCT_OUT)/$(name).zip
 
@@ -2096,7 +2102,7 @@ endif
 
 $(INTERNAL_OTA_PACKAGE_TARGET): $(BUILT_TARGET_FILES_PACKAGE)
 	@echo "$(override_device)" > $(PRODUCT_OUT)/ota_override_device 
-	@echo "Package OTA: $@"
+	@echo "Package OTA:"" $@"
 	$(hide) PATH=$(foreach p,$(INTERNAL_USERIMAGES_BINARY_PATHS),$(p):)$$PATH MKBOOTIMG=$(MKBOOTIMG) \
 	   $(OTA_FROM_TARGET_SCRIPT) -v \
 	   $(block_based) \
@@ -2164,7 +2170,7 @@ else
 endif
 
 $(INTERNAL_UPDATE_PACKAGE_TARGET): $(BUILT_TARGET_FILES_PACKAGE)
-	@echo "Package: $@"
+	@echo "Package:"" $@"
 	$(hide) PATH=$(foreach p,$(INTERNAL_USERIMAGES_BINARY_PATHS),$(p):)$$PATH MKBOOTIMG=$(MKBOOTIMG) \
 	   $(IMG_FROM_TARGET_SCRIPT) -v \
 	   -p $(HOST_OUT) \
@@ -2206,7 +2212,7 @@ name := $(name)-apps-$(FILE_NAME_TAG)
 
 APPS_ZIP := $(PRODUCT_OUT)/$(name).zip
 $(APPS_ZIP): $(INSTALLED_SYSTEMIMAGE)
-	@echo "Package apps: $@"
+	@echo "Package apps:"" $@"
 	$(hide) rm -rf $@
 	$(hide) mkdir -p $(dir $@)
 	$(hide) apps_to_zip=`find $(TARGET_OUT_APPS) $(TARGET_OUT_APPS_PRIVILEGED) -mindepth 2 -maxdepth 3 -name "*.apk"`; \
@@ -2273,7 +2279,7 @@ name := $(TARGET_PRODUCT)-emulator-$(FILE_NAME_TAG)
 INTERNAL_EMULATOR_PACKAGE_TARGET := $(PRODUCT_OUT)/$(name).zip
 
 $(INTERNAL_EMULATOR_PACKAGE_TARGET): $(INTERNAL_EMULATOR_PACKAGE_FILES)
-	@echo "Package: $@"
+	@echo "Package:"" $@"
 	$(hide) zip -qjX $@ $(INTERNAL_EMULATOR_PACKAGE_FILES)
 
 endif
