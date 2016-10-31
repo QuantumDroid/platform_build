@@ -123,8 +123,8 @@ endif
 $(shell mkdir -p $(OUT_DIR) && \
     echo -n $(BUILD_NUMBER) > $(OUT_DIR)/build_number.txt && \
     echo -n $(BUILD_DATETIME) > $(OUT_DIR)/build_date.txt)
-BUILD_NUMBER_FROM_FILE := $$(cat $(OUT_DIR)/build_number.txt)
-BUILD_DATETIME_FROM_FILE := $$(cat $(OUT_DIR)/build_date.txt)
+BUILD_NUMBER_FROM_FILE := $(shell cat $(OUT_DIR)/build_number.txt)
+BUILD_DATETIME_FROM_FILE := $(shell cat $(OUT_DIR)/build_date.txt)
 ifeq ($(HOST_OS),darwin)
 DATE_FROM_FILE := date -r $(BUILD_DATETIME_FROM_FILE)
 else
@@ -142,10 +142,17 @@ endif
 # be generated correctly
 include $(BUILD_SYSTEM)/cleanbuild.mk
 
+# Bring in Qualcomm helper macros
+include $(BUILD_SYSTEM)/qcom_utils.mk
+
+# Bring in Mediatek helper macros too
+include $(BUILD_SYSTEM)/mtk_utils.mk
+
 # Include the google-specific config
 -include vendor/google/build/config.mk
 
 VERSION_CHECK_SEQUENCE_NUMBER := 6
+
 -include $(OUT_DIR)/versions_checked.mk
 ifneq ($(VERSION_CHECK_SEQUENCE_NUMBER),$(VERSIONS_CHECKED))
 
@@ -210,39 +217,6 @@ $(info ************************************************************)
 $(error stop)
 endif
 
-# Check for the current JDK.
-#
-# For Java 1.7/1.8, we require OpenJDK on linux and Oracle JDK on Mac OS.
-requires_openjdk := false
-ifeq ($(BUILD_OS),linux)
-requires_openjdk := true
-endif
-
-
-# Check for the current jdk
-ifeq ($(requires_openjdk), true)
-# The user asked for openjdk, so check that the host
-# java version is really openjdk and not some other JDK.
-ifeq ($(shell echo '$(java_version_str)' | grep -i openjdk),)
-$(info ************************************************************)
-$(info You asked for an OpenJDK based build but your version is)
-$(info $(java_version_str).)
-$(info ************************************************************)
-$(error stop)
-endif # java version is not OpenJdk
-else # if requires_openjdk
-ifneq ($(shell echo '$(java_version_str)' | grep -i openjdk),)
-$(info ************************************************************)
-$(info You are attempting to build with an unsupported JDK.)
-$(info $(space))
-$(info You use OpenJDK but only Sun/Oracle JDK is supported.)
-$(info Please follow the machine setup instructions at)
-$(info $(space)$(space)$(space)$(space)https://source.android.com/source/download.html)
-$(info ************************************************************)
-$(error stop)
-endif # java version is not Sun Oracle JDK
-endif # if requires_openjdk
-
 KNOWN_INCOMPATIBLE_JAVAC_VERSIONS := google
 incompat_javac := $(foreach v,$(KNOWN_INCOMPATIBLE_JAVAC_VERSIONS),$(findstring $(v),$(javac_version_str)))
 ifneq ($(incompat_javac),)
@@ -294,6 +268,9 @@ endif
 
 # Bring in standard build system definitions.
 include $(BUILD_SYSTEM)/definitions.mk
+
+# Bring in Qualcomm helper macros
+include $(BUILD_SYSTEM)/qcom_utils.mk
 
 # Bring in dex_preopt.mk
 include $(BUILD_SYSTEM)/dex_preopt.mk
@@ -552,7 +529,7 @@ ifeq ($(USE_SOONG),true)
 subdir_makefiles := $(SOONG_ANDROID_MK) $(call filter-soong-makefiles,$(subdir_makefiles))
 endif
 
-$(foreach mk, $(subdir_makefiles),$(info including $(mk) ...)$(eval include $(mk)))
+$(foreach mk, $(subdir_makefiles), $(eval include $(mk)))
 
 ifdef PDK_FUSION_PLATFORM_ZIP
 # Bring in the PDK platform.zip modules.
@@ -1102,7 +1079,7 @@ $(foreach module,$(sample_MODULES),$(eval $(call \
 sample_ADDITIONAL_INSTALLED := \
         $(filter-out $(modules_to_install) $(modules_to_check) $(ALL_PREBUILT),$(sample_MODULES))
 samplecode: $(sample_APKS_COLLECTION)
-	@echo "Collect sample code apks: $^"
+	@echo "Collect sample code apks:"" $^"
 	# remove apks that are not intended to be installed.
 	rm -f $(sample_ADDITIONAL_INSTALLED)
 endif  # samplecode in $(MAKECMDGOALS)
@@ -1112,7 +1089,7 @@ findbugs: $(INTERNAL_FINDBUGS_HTML_TARGET) $(INTERNAL_FINDBUGS_XML_TARGET)
 
 .PHONY: clean
 clean:
-	@rm -rf $(OUT_DIR)/*
+	@rm -rf $(OUT_DIR)/* $(OUT_DIR)/..?* $(OUT_DIR)/.[!.]*
 	@echo "Entire build directory removed."
 
 .PHONY: clobber

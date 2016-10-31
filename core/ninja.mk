@@ -1,4 +1,7 @@
-NINJA ?= prebuilts/ninja/$(HOST_PREBUILT_TAG)/ninja
+NINJA ?= $(shell which ninja)
+ifeq ($(NINJA),)
+  NINJA := prebuilts/ninja/$(HOST_PREBUILT_TAG)/ninja
+endif
 
 ifeq ($(USE_SOONG),true)
 USE_SOONG_FOR_KATI := true
@@ -93,7 +96,7 @@ KATI_NINJA_SUFFIX := $(KATI_NINJA_SUFFIX)-mmma-$(call replace_space_and_slash,$(
 endif
 
 my_checksum_suffix :=
-my_ninja_suffix_too_long := $(filter 1, $(shell v='$(KATI_NINJA_SUFFIX)' && echo $$(($${$(pound)v} > 64))))
+my_ninja_suffix_too_long := $(filter 1, $(shell v='$(KATI_NINJA_SUFFIX)' && echo $$(($${$(pound)v} > 240))))
 ifneq ($(my_ninja_suffix_too_long),)
 # Replace the suffix with a checksum if it gets too long.
 my_checksum_suffix := $(KATI_NINJA_SUFFIX)
@@ -161,7 +164,7 @@ ifeq ($(KATI_EMULATE_FIND),false)
 endif
 $(KATI_BUILD_NINJA): $(KATI) $(MAKEPARALLEL) $(DUMMY_OUT_MKS) $(SOONG_ANDROID_MK) FORCE
 	@echo Running kati to generate build$(KATI_NINJA_SUFFIX).ninja...
-	+$(hide) $(KATI_MAKEPARALLEL) $(KATI) --ninja --ninja_dir=$(OUT_DIR) --ninja_suffix=$(KATI_NINJA_SUFFIX) --regen --ignore_dirty=$(OUT_DIR)/% --no_ignore_dirty=$(SOONG_ANDROID_MK) --ignore_optional_include=$(OUT_DIR)/%.P --detect_android_echo $(KATI_FIND_EMULATOR) -f build/core/main.mk $(KATI_GOALS) --gen_all_targets BUILDING_WITH_NINJA=true SOONG_ANDROID_MK=$(SOONG_ANDROID_MK)
+	+$(hide) $(KATI_MAKEPARALLEL) $(KATI) --ninja --ninja_dir=$(OUT_DIR) --ninja_suffix=$(KATI_NINJA_SUFFIX) --regen --ignore_dirty=$(OUT_DIR)/% --no_ignore_dirty=$(SOONG_ANDROID_MK) --ignore_optional_include=$(OUT_DIR)/%.P $(KATI_FIND_EMULATOR) -f build/core/main.mk $(KATI_GOALS) --gen_all_targets BUILDING_WITH_NINJA=true SOONG_ANDROID_MK=$(SOONG_ANDROID_MK)
 
 ifneq ($(USE_SOONG_FOR_KATI),true)
 KATI_CXX := $(CLANG_CXX) $(CLANG_HOST_GLOBAL_CFLAGS) $(CLANG_HOST_GLOBAL_CPPFLAGS)
