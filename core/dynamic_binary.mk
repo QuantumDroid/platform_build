@@ -81,7 +81,7 @@ $(relocation_packer_output): $(relocation_packer_input) | $(ACP)
 	$(pack-elf-relocations)
 else
 $(relocation_packer_output): $(relocation_packer_input) | $(ACP)
-	@echo "target Unpacked: $(PRIVATE_MODULE) ($@)"
+	@echo "target Unpacked:"" $(PRIVATE_MODULE) ($@)"
 	$(copy-file-to-target)
 endif
 
@@ -96,7 +96,7 @@ endif
 symbolic_input := $(relocation_packer_output)
 symbolic_output := $(my_unstripped_path)/$(my_installed_module_stem)
 $(symbolic_output) : $(symbolic_input) | $(ACP)
-	@echo "target Symbolic: $(PRIVATE_MODULE) ($@)"
+	@echo "target Symbolic:"" $(PRIVATE_MODULE) ($@)"
 	$(copy-file-to-target)
 
 ###########################################################
@@ -108,7 +108,7 @@ my_breakpad_path := $(TARGET_OUT_BREAKPAD)/$(patsubst $(PRODUCT_OUT)/%,%,$(my_mo
 breakpad_input := $(relocation_packer_output)
 breakpad_output := $(my_breakpad_path)/$(my_installed_module_stem).sym
 $(breakpad_output) : $(breakpad_input) | $(BREAKPAD_DUMP_SYMS)
-	@echo "target breakpad: $(PRIVATE_MODULE) ($@)"
+	@echo "target breakpad:"" $(PRIVATE_MODULE) ($@)"
 	@mkdir -p $(dir $@)
 	$(hide) $(BREAKPAD_DUMP_SYMS) -c $< > $@
 $(LOCAL_BUILT_MODULE) : $(breakpad_output)
@@ -161,11 +161,11 @@ else
 # use cp(1) instead.
 ifneq ($(LOCAL_ACP_UNAVAILABLE),true)
 $(strip_output): $(strip_input) | $(ACP)
-	@echo "target Unstripped: $(PRIVATE_MODULE) ($@)"
+	@echo "target Unstripped:"" $(PRIVATE_MODULE) ($@)"
 	$(copy-file-to-target)
 else
 $(strip_output): $(strip_input)
-	@echo "target Unstripped: $(PRIVATE_MODULE) ($@)"
+	@echo "target Unstripped:"" $(PRIVATE_MODULE) ($@)"
 	$(copy-file-to-target-with-cp)
 endif
 endif # my_strip_module

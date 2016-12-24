@@ -179,19 +179,20 @@ include $(BUILD_SYSTEM)/node_fns.mk
 include $(BUILD_SYSTEM)/product.mk
 include $(BUILD_SYSTEM)/device.mk
 
-ifneq ($(strip $(TARGET_BUILD_APPS)),)
-# An unbundled app build needs only the core product makefiles.
-all_product_configs := $(call get-product-makefiles,\
-    $(SRC_TARGET_DIR)/product/AndroidProducts.mk)
+# A QuantumDroid build needs only the QuantumDroid product makefiles.
+ifneq ($(QD_BUILD),)
+  all_product_configs := $(shell find device -path "*/$(QD_BUILD)/qd.mk")
 else
-  ifneq ($(QD_BUILD),)
-    all_product_configs := $(shell ls device/*/$(QD_BUILD)/qd.mk)
+  ifneq ($(strip $(TARGET_BUILD_APPS)),)
+  # An unbundled app build needs only the core product makefiles.
+  all_product_configs := $(call get-product-makefiles,\
+      $(SRC_TARGET_DIR)/product/AndroidProducts.mk)
   else
     # Read in all of the product definitions specified by the AndroidProducts.mk
     # files in the tree.
     all_product_configs := $(get-all-product-makefiles)
-  endif
-endif
+  endif # TARGET_BUILD_APPS
+endif # QD_BUILD
 
 ifeq ($(QD_BUILD),)
 # Find the product config makefile for the current product.
@@ -355,6 +356,12 @@ endif
 # The optional :<owner> is used to indicate the owner of a vendor file.
 PRODUCT_COPY_FILES := \
     $(strip $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_COPY_FILES))
+_boot_animation := $(strip $(lastword $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_BOOTANIMATION)))
+ifneq ($(_boot_animation),)
+PRODUCT_COPY_FILES += \
+    $(_boot_animation):system/media/bootanimation.zip
+endif
+_boot_animation :=
 
 # We might want to skip items listed in PRODUCT_COPY_FILES for
 # various reasons. This is useful for replacing a binary module with one
@@ -368,9 +375,8 @@ endif
 
 .PHONY: listcopies
 listcopies:
-	@echo "Copy files: $(PRODUCT_COPY_FILES)"
-	@echo "Overrides: $(PRODUCT_COPY_FILES_OVERRIDES)"
-
+	@echo "Copy files:"" $(PRODUCT_COPY_FILES)"
+	@echo "Overrides:"" $(PRODUCT_COPY_FILES_OVERRIDES)"
 
 # A list of property assignments, like "key = value", with zero or more
 # whitespace characters on either side of the '='.
