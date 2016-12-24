@@ -341,9 +341,10 @@ def LoadRecoveryFSTab(read_helper, fstab_version, recovery_fstab_path,
           else:
             print "%s: unknown option \"%s\"" % (mount_point, i)
 
-      d[mount_point] = Partition(mount_point=mount_point, fs_type=pieces[1],
-                                 device=pieces[2], length=length,
-                                 device2=device2)
+      if not d.get(mount_point):
+          d[mount_point] = Partition(mount_point=mount_point, fs_type=pieces[1],
+                                     device=pieces[2], length=length,
+                                     device2=device2)
 
   elif fstab_version == 2:
     d = {}
@@ -379,9 +380,10 @@ def LoadRecoveryFSTab(read_helper, fstab_version, recovery_fstab_path,
           context = i
 
       mount_point = pieces[1]
-      d[mount_point] = Partition(mount_point=mount_point, fs_type=pieces[2],
-                                 device=pieces[0], length=length,
-                                 device2=None, context=context)
+      if not d.get(mount_point):
+          d[mount_point] = Partition(mount_point=mount_point, fs_type=pieces[2],
+                                     device=pieces[0], length=length,
+                                     device2=None, context=context)
 
   else:
     raise ValueError("Unknown fstab_version: \"%d\"" % (fstab_version,))
@@ -441,48 +443,79 @@ def _BuildBootableImage(sourcedir, fs_config_file, info_dict=None,
   if has_ramdisk:
     ramdisk_img = make_ramdisk()
 
-  # use MKBOOTIMG from environ, or "mkbootimg" if empty or not set
-  mkbootimg = os.getenv('MKBOOTIMG') or "mkbootimg"
-
-  cmd = [mkbootimg, "--kernel", os.path.join(sourcedir, "kernel")]
-
-  fn = os.path.join(sourcedir, "second")
+  """check if uboot is requested"""
+  fn = os.path.join(sourcedir, "ubootargs")
   if os.access(fn, os.F_OK):
-    cmd.append("--second")
-    cmd.append(fn)
+    cmd = ["mkimage"]
+    for argument in open(fn).read().rstrip("\n").split(" "):
+      cmd.append(argument)
+    cmd.append("-d")
+    cmd.append(os.path.join(sourcedir, "kernel")+":"+ramdisk_img.name)
+    cmd.append(img.name)
 
-  fn = os.path.join(sourcedir, "cmdline")
-  if os.access(fn, os.F_OK):
-    cmd.append("--cmdline")
-    cmd.append(open(fn).read().rstrip("\n"))
-
-  fn = os.path.join(sourcedir, "base")
-  if os.access(fn, os.F_OK):
-    cmd.append("--base")
-    cmd.append(open(fn).read().rstrip("\n"))
-
-  fn = os.path.join(sourcedir, "pagesize")
-  if os.access(fn, os.F_OK):
-    cmd.append("--pagesize")
-    cmd.append(open(fn).read().rstrip("\n"))
-
-  args = info_dict.get("mkbootimg_args", None)
-  if args and args.strip():
-    cmd.extend(shlex.split(args))
-
-  args = info_dict.get("mkbootimg_version_args", None)
-  if args and args.strip():
-    cmd.extend(shlex.split(args))
-
-  if has_ramdisk:
-    cmd.extend(["--ramdisk", ramdisk_img.name])
-
-  img_unsigned = None
-  if info_dict.get("vboot", None):
-    img_unsigned = tempfile.NamedTemporaryFile()
-    cmd.extend(["--output", img_unsigned.name])
   else:
-    cmd.extend(["--output", img.name])
+    # use MKBOOTIMG from environ, or "mkbootimg" if empty or not set
+    mkbootimg = os.getenv('MKBOOTIMG') or "mkbootimg"
+
+    cmd = [mkbootimg, "--kernel", os.path.join(sourcedir, "kernel")]
+
+    fn = os.path.join(sourcedir, "second")
+    if os.access(fn, os.F_OK):
+      cmd.append("--second")
+      cmd.append(fn)
+
+    fn = os.path.join(sourcedir, "cmdline")
+    if os.access(fn, os.F_OK):
+      cmd.append("--cmdline")
+      cmd.append(open(fn).read().rstrip("\n"))
+
+    fn = os.path.join(sourcedir, "base")
+    if os.access(fn, os.F_OK):
+      cmd.append("--base")
+      cmd.append(open(fn).read().rstrip("\n"))
+
+    fn = os.path.join(sourcedir, "tagsaddr")
+    if os.access(fn, os.F_OK):
+      cmd.append("--tags-addr")
+      cmd.append(open(fn).read().rstrip("\n"))
+
+    fn = os.path.join(sourcedir, "tags_offset")
+    if os.access(fn, os.F_OK):
+      cmd.append("--tags_offset")
+      cmd.append(open(fn).read().rstrip("\n"))
+
+    fn = os.path.join(sourcedir, "ramdisk_offset")
+    if os.access(fn, os.F_OK):
+      cmd.append("--ramdisk_offset")
+      cmd.append(open(fn).read().rstrip("\n"))
+
+    fn = os.path.join(sourcedir, "dt_args")
+    if os.access(fn, os.F_OK):
+      cmd.append("--dt")
+      cmd.append(open(fn).read().rstrip("\n"))
+
+    fn = os.path.join(sourcedir, "pagesize")
+    if os.access(fn, os.F_OK):
+      cmd.append("--pagesize")
+      cmd.append(open(fn).read().rstrip("\n"))
+
+    args = info_dict.get("mkbootimg_args", None)
+    if args and args.strip():
+      cmd.extend(shlex.split(args))
+
+    args = info_dict.get("mkbootimg_version_args", None)
+    if args and args.strip():
+      cmd.extend(shlex.split(args))
+
+    if has_ramdisk:
+      cmd.extend(["--ramdisk", ramdisk_img.name])
+
+    img_unsigned = None
+    if info_dict.get("vboot", None):
+      img_unsigned = tempfile.NamedTemporaryFile()
+      cmd.extend(["--output", img_unsigned.name])
+    else:
+      cmd.extend(["--output", img.name])
 
   p = Run(cmd, stdout=subprocess.PIPE)
   p.communicate()
@@ -582,6 +615,7 @@ def UnzipTemp(filename, pattern=None):
   OPTIONS.tempfiles.append(tmp)
 
   def unzip_to_dir(filename, dirname):
+    subprocess.call(["rm", "-rf", dirname + filename, "targetfiles-*"])
     cmd = ["unzip", "-o", "-q", filename, "-d", dirname]
     if pattern is not None:
       cmd.append(pattern)
@@ -750,8 +784,8 @@ def CheckSize(data, target, info_dict):
   fs_type = None
   limit = None
   if info_dict["fstab"]:
-    if mount_point == "/userdata":
-      mount_point = "/data"
+    if mount_point == "/userdata_extra": mount_point = "/data"
+    if mount_point == "/userdata": mount_point = "/data"
     p = info_dict["fstab"][mount_point]
     fs_type = p.fs_type
     device = p.device
@@ -1270,7 +1304,7 @@ class Difference(object):
           err.append(e)
       th = threading.Thread(target=run)
       th.start()
-      th.join(timeout=300)   # 5 mins
+      th.join(timeout=600)   # 10 mins
       if th.is_alive():
         print "WARNING: diff command timed out"
         p.terminate()
@@ -1281,7 +1315,7 @@ class Difference(object):
 
       if err or p.returncode != 0:
         print "WARNING: failure running %s:\n%s\n" % (
-            diff_program, "".join(err))
+            cmd, "".join(err))
         self.patch = None
         return None, None, None
       diff = ptemp.read()
@@ -1591,7 +1625,11 @@ PARTITION_TYPES = {
     "ext4": "EMMC",
     "emmc": "EMMC",
     "f2fs": "EMMC",
-    "squashfs": "EMMC"
+    "squashfs": "EMMC",
+    "ext2": "EMMC",
+    "ext3": "EMMC",
+    "vfat": "EMMC",
+    "osip": "OSIP"
 }
 
 def GetTypeAndDevice(mount_point, info):
