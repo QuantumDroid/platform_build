@@ -2257,7 +2257,7 @@ QD_TARGET_PACKAGE := $(PRODUCT_OUT)/QuantumDroid-$(shell date +%Y%m%d)-$(TARGET_
 otapackage: $(INTERNAL_OTA_PACKAGE_TARGET)
 bacon: otapackage
 	$(hide) ln -f $(INTERNAL_OTA_PACKAGE_TARGET) $(QD_TARGET_PACKAGE)
-	$(hide) $(MD5SUM) $(QD_TARGET_PACKAGE) > $(QD_TARGET_PACKAGE).md5sum
+	$(hide) $(MD5SUM) $(QD_TARGET_PACKAGE) | sed "s|$(PRODUCT_OUT)/||" > $(QD_TARGET_PACKAGE).md5sum
 	@echo -e ${CL_CYN}"Package Complete: $(QD_TARGET_PACKAGE)"${CL_RST}
 
 endif    # build_ota_package
